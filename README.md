@@ -1,27 +1,70 @@
 # neuroglyphics.py — Engine Reference
 
-The command-line engine that runs the system. One Python file, standard library only, no installs. It lives at the root of this vault (`neuroglyphics.py`) so the code travels with your notes.
+The command-line engine that runs the system. One Python file, standard library only, no installs, no dependencies. It lives at the root of the vault (`neuroglyphics.py`) so the code travels with your notes.
 
 For *what to do*, see [[Workflow]]. This is *how the tool works*.
 
 ---
 
-## Install
+## Get it running
 
-macOS already has Python 3. Add the alias:
+**This repo is a vault template. The folder you clone becomes your vault.**
+
+You need Python 3 — macOS and most Linux distros already have it. Check with `python3 --version`.
+
+### 1. Clone it under whatever name you want your vault to have
 
 ```bash
-echo 'alias glyph="python3 ./neuroglyphics.py --vault ./"' >> ~/.zshrc
+git clone https://github.com/jeffrey-allan-brown/neuroglyphics-engine.git my-vault
+cd my-vault
+```
+
+No git? Download the ZIP from the repo's green **Code** button, unzip it, and `cd` into the folder. Everything below works the same.
+
+### 2. Scaffold
+
+```bash
+python3 neuroglyphics.py init
+```
+
+This creates `Codex/`, `Constellations/`, `Covenant.md`, `Wonder List.md`, and the hidden `.neuroglyphics/` — including a **salt unique to you**, generated on the spot. Two vaults never share one.
+
+`init` only creates what's missing, so it's safe to re-run. It never overwrites a note, a signed Covenant, your Wonder List, the ledger, or `state.json`.
+
+### 3. Add the alias
+
+```bash
+echo "alias glyph='python3 \"$PWD/neuroglyphics.py\" --vault \"$PWD\"'" >> ~/.zshrc
 source ~/.zshrc
 ```
 
-Then initialize:
+Run that from inside the vault — `$PWD` bakes in the absolute path, so `glyph` works from anywhere. On bash, use `~/.bashrc`.
 
 ```bash
-glyph init
+glyph status
 ```
 
-**Safe to run on this vault as-is.** `init` only creates what's missing — it never overwrites `Covenant.md`, `Wonder List.md`, `ledger.md`, `state.json`, or any note. Your existing `Constellations/`, `Guides/`, and `Templates/` folders are untouched.
+Sign the Covenant, sketch a Constellation, feed the Wonder List. Then forge your first glyph.
+
+### 4. Point Obsidian at it
+
+Open Obsidian → **Open folder as vault** → pick the folder you just cloned. `.neuroglyphics/` stays invisible inside the app because of the leading dot.
+
+---
+
+## Your cards never enter this repo
+
+`.gitignore` excludes everything you and the engine generate — `state.json`, the ledger, sealed folios, `Codex/`, `Constellations/`, your Covenant, your Wonder List. Only the engine and its docs are tracked.
+
+That has one very useful consequence: **your clone stays a clean copy of the engine**, so updates are just
+
+```bash
+git pull
+```
+
+and your cards are never part of the merge.
+
+**If you'd rather back the vault up in your own private repo**, open `.gitignore` and delete the block marked `vault contents` — you *want* those files tracked. Two cautions: point `origin` at your own repo first (`git remote set-url origin …`), and keep that repo **private**. `state.json` holds your salt.
 
 ## How the vault gets found
 
@@ -29,7 +72,7 @@ Two different rules, on purpose.
 
 **`init` always scaffolds where you're standing.** It ignores `--vault` entirely, so a pinned alias can never silently re-initialize some other directory when you meant *here*. Pass a path to override: `glyph init ~/somewhere/else`. If the target sits inside an existing vault, it warns and asks before nesting.
 
-**Every other command finds the nearest enclosing vault**, walking up from your current directory the way git finds `.git/`. Run `glyph status` from `Codex/` or four levels deep in `Guides/` and it resolves to the vault root.
+**Every other command finds the nearest enclosing vault**, walking up from your current directory the way git finds `.git/`. Run `glyph status` from `Codex/` or four levels deep in `Constellations/` and it resolves to the vault root.
 
 `--vault` is a **fallback, not an override** — it applies only when you aren't inside a vault at all. That ordering is what makes a pinned alias useful: standing in your home directory, `glyph status` still reports on your main vault; standing inside a different vault, it reports on *that* one. To force a specific vault, `cd` there.
 
@@ -45,12 +88,12 @@ Two different rules, on purpose.
 ## What it creates
 
 ```
-neuroglyphics/
-├── neuroglyphics.py          the engine
+my-vault/
+├── neuroglyphics.py          the engine          ← tracked
+├── README.md                 this file           ← tracked
+├── .gitignore                                    ← tracked
 ├── Codex/                    one .md per glyph — your cards
 ├── Constellations/           your maps (you write these)
-├── Guides/                   node guides (you write these)
-├── Templates/                the Glyph template
 ├── Wonder List.md            curiosities, one per bullet
 ├── Covenant.md               sign it
 └── .neuroglyphics/           ← hidden from Obsidian
@@ -60,6 +103,10 @@ neuroglyphics/
     ├── sealed/*.ng           encrypted folio contents
     └── revealed/*.ng         opened folios, kept for the record
 ```
+
+Everything not marked *tracked* is gitignored — it's yours, not the repo's.
+
+`init` creates `Codex/`, `Constellations/`, `Covenant.md`, `Wonder List.md`, and `.neuroglyphics/`. Any other folder you add to the vault is left alone.
 
 The leading dot on `.neuroglyphics/` is load-bearing: Obsidian hides dotfolders, so sealed contents are invisible from inside the app by construction. Don't rename it.
 
@@ -256,4 +303,11 @@ At seal time the engine rolls contents and finishes, applies modifiers and pity,
 | Fading not appearing | Run `glyph status` — that's what applies the sweep |
 | Colors look wrong | Output isn't a TTY. Piping strips ANSI on purpose |
 
-**Backups:** `.neuroglyphics/` is the only irreplaceable part. Your cards are plain markdown; the state, ledger, and salt are not. If this vault isn't already in git or a sync service, that's the one thing worth fixing.
+**Backups:** `.neuroglyphics/` is the only irreplaceable part. Your cards are plain markdown; the state, ledger, and salt are not — and this repo's `.gitignore` deliberately keeps them out of git, so cloning the template does **not** back you up.
+
+Pick one and actually do it:
+
+- **A sync service** — put the vault in iCloud / Dropbox / Syncthing. Simplest, covers everything.
+- **Your own private repo** — delete the `vault contents` block in `.gitignore`, `git remote set-url origin` to a repo you own, and keep it private. You lose clean `git pull` updates from upstream, but you get versioned history of every card.
+
+Either way, back up before your first `seal`. After that, losing the salt costs you every unopened folio.
