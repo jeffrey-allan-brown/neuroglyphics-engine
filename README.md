@@ -2,7 +2,7 @@
 
 The command-line engine that runs the system. One Python file, standard library only, no installs, no dependencies. It lives at the root of the vault (`neuroglyphics.py`) so the code travels with your notes.
 
-For *what to do*, see [[Workflow]]. This is *how the tool works*.
+This is *how the tool works* — command reference and file formats. Workflow and study philosophy live in your own vault notes once you've scaffolded one.
 
 ---
 
@@ -64,7 +64,7 @@ git pull
 
 and your cards are never part of the merge.
 
-**If you'd rather back the vault up in your own private repo**, open `.gitignore` and delete the block marked `vault contents` — you *want* those files tracked. Two cautions: point `origin` at your own repo first (`git remote set-url origin …`), and keep that repo **private**. `state.json` holds your salt.
+**If you'd rather back the vault up in your own private repo**, open `.gitignore` and delete the lone `*` line — that makes everything trackable again. Two cautions: point `origin` at your own repo first (`git remote set-url origin …`), and keep that repo **private**. `state.json` holds your salt.
 
 ## How the vault gets found
 
@@ -230,8 +230,6 @@ The engine writes some frontmatter and reads the rest. Hand-editing an engine-ow
 | `last_fired`, `interval_days`, `status` (on reveal/restore) | `proof`, `lore`, `forged` |
 | `first_edition`, `cipher_decode` | `quiz_excellence` |
 
-Full field meanings: [[Glyph — field reference]]
-
 **`stage: draft`** is the useful escape hatch. The engine only sweeps `stage: forged` cards into folios, so a draft can never seal unproven. Set it by hand when you want a card to exist before its proof does.
 
 ---
@@ -308,6 +306,6 @@ At seal time the engine rolls contents and finishes, applies modifiers and pity,
 Pick one and actually do it:
 
 - **A sync service** — put the vault in iCloud / Dropbox / Syncthing. Simplest, covers everything.
-- **Your own private repo** — delete the `vault contents` block in `.gitignore`, `git remote set-url origin` to a repo you own, and keep it private. You lose clean `git pull` updates from upstream, but you get versioned history of every card.
+- **Your own private repo** — delete the lone `*` line in `.gitignore`, `git remote set-url origin` to a repo you own, and keep it private. You lose clean `git pull` updates from upstream, but you get versioned history of every card.
 
 Either way, back up before your first `seal`. After that, losing the salt costs you every unopened folio.

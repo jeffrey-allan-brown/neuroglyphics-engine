@@ -2,33 +2,28 @@
 # Neuroglyphics — your vault is yours.
 #
 # This repo doubles as a vault template: once you clone it, this folder
-# IS your vault. Everything you or the engine generates is ignored, so
-# the clone stays a clean copy of the engine and `git pull` never has to
-# fight your cards.
+# IS your vault. Everything is ignored by default — only the engine and
+# its docs are tracked — so the clone stays a clean copy of the engine
+# and `git pull` never has to fight your cards.
 #
 # Backing your vault up to your OWN private repo instead? Delete the
-# "vault contents" block below — you want those files tracked. Never
-# push them to a public fork: state.json holds your salt.
+# lone "*" line below so everything becomes trackable again, then
+# `git remote set-url origin …` to a repo you own and keep it private.
+# Never push a tracked state.json to a public fork: it holds your salt.
 # ---------------------------------------------------------------------
 
-# --- vault contents (delete this block for a private backup repo) ---
-.neuroglyphics/state.json
-.neuroglyphics/bench.json
-.neuroglyphics/ledger.md
-.neuroglyphics/sealed/
-.neuroglyphics/revealed/
+# Ignore everything by default...
+*
 
-Codex/
-Constellations/
-Templates/
-Covenant.md
-Wonder List.md
-# --- end vault contents ---
+# ...except the engine and its docs.
+!.gitignore
+!README.md
+!neuroglyphics.py
 
-# Obsidian workspace config — machine-specific
+# Obsidian workspace config — machine-specific, even in a private repo.
 .obsidian/
 
-# OS and editor cruft
+# OS and editor cruft — same.
 .DS_Store
 Thumbs.db
 __pycache__/
