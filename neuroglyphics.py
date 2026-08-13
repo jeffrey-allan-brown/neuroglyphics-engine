@@ -192,7 +192,7 @@ def safe_filename(name):
 
 LEGACY_STATUS = {"lit": "bright"}  # renamed Aug 2026; old vaults still read fine
 
-# ---- node notes (hand-written, one per node, inside Constellations/<name>/)
+# ---- node notes (hand-written, one per node, inside Codex/<constellation>/)
 
 CLASS_TO_TYPE = {
     "concept": "Concept", "technique": "Technique", "instrument": "Instrument",
@@ -282,7 +282,6 @@ class Vault:
     def __init__(self, root: Path):
         self.root = root
         self.codex = root / "Codex"
-        self.constellations = root / "Constellations"
         self.wonder = root / "Wonder List.md"
         self.meta = root / ".neuroglyphics"
         self.sealed_dir = self.meta / "sealed"
@@ -330,7 +329,7 @@ class Vault:
         return Vault(root)
 
     def init(self):
-        for d in (self.codex, self.constellations, self.sealed_dir, self.revealed_dir):
+        for d in (self.codex, self.sealed_dir, self.revealed_dir):
             d.mkdir(parents=True, exist_ok=True)
         if not (self.root / "Covenant.md").exists():
             (self.root / "Covenant.md").write_text(COVENANT, encoding="utf-8")
@@ -393,16 +392,12 @@ class Vault:
     def glyph_files(self):
         """Every file that could hold a glyph.
 
-        Cards live in place, inside Constellations/<constellation>/, so the map
-        stays wired in Obsidian's graph. Codex/ is still scanned for cards forged
-        before that change.
+        Cards live in place, inside Codex/<constellation>/, so the map stays
+        wired in Obsidian's graph.
         """
-        files = []
-        if self.constellations.exists():
-            files.extend(sorted(self.constellations.rglob("*.md")))
-        if self.codex.exists():
-            files.extend(sorted(self.codex.glob("*.md")))
-        return files
+        if not self.codex.exists():
+            return []
+        return sorted(self.codex.rglob("*.md"))
 
     def glyphs(self):
         out = []
@@ -414,21 +409,21 @@ class Vault:
 
     def find_node_note(self, name):
         """Locate a hand-written node note by filename, case-insensitively."""
-        if not self.constellations.exists():
+        if not self.codex.exists():
             return None
-        for p in sorted(self.constellations.rglob("*.md")):
+        for p in sorted(self.codex.rglob("*.md")):
             if p.stem.lower() == name.lower():
                 return p
         return None
 
     def mapped_constellations(self):
-        """Constellation names taken from folders under Constellations/."""
-        if not self.constellations.exists():
+        """Constellation names taken from folders under Codex/."""
+        if not self.codex.exists():
             return set()
-        return {d.name for d in self.constellations.iterdir() if d.is_dir()}
+        return {d.name for d in self.codex.iterdir() if d.is_dir()}
 
     def card_path(self, constellation, name):
-        return self.constellations / constellation / f"{safe_filename(name)}.md"
+        return self.codex / constellation / f"{safe_filename(name)}.md"
 
     def find_glyph(self, name):
         for fm in self.glyphs():

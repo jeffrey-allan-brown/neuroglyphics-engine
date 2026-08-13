@@ -27,7 +27,7 @@ No git? Download the ZIP from the repo's green **Code** button, unzip it, and `c
 python3 neuroglyphics.py init
 ```
 
-This creates `Codex/`, `Constellations/`, `Covenant.md`, `Wonder List.md`, and the hidden `.neuroglyphics/` — including a **salt unique to you**, generated on the spot. Two vaults never share one.
+This creates `Codex/`, `Covenant.md`, `Wonder List.md`, and the hidden `.neuroglyphics/` — including a **salt unique to you**, generated on the spot. Two vaults never share one.
 
 `init` only creates what's missing, so it's safe to re-run. It never overwrites a note, a signed Covenant, your Wonder List, the ledger, or `state.json`.
 
@@ -54,7 +54,7 @@ Open Obsidian → **Open folder as vault** → pick the folder you just cloned. 
 
 ## Your cards never enter this repo
 
-`.gitignore` excludes everything you and the engine generate — `state.json`, the ledger, sealed folios, `Codex/`, `Constellations/`, your Covenant, your Wonder List. Only the engine and its docs are tracked.
+`.gitignore` excludes everything you and the engine generate — `state.json`, the ledger, sealed folios, `Codex/`, your Covenant, your Wonder List. Only the engine and its docs are tracked.
 
 That has one very useful consequence: **your clone stays a clean copy of the engine**, so updates are just
 
@@ -72,7 +72,7 @@ Two different rules, on purpose.
 
 **`init` always scaffolds where you're standing.** It ignores `--vault` entirely, so a pinned alias can never silently re-initialize some other directory when you meant *here*. Pass a path to override: `glyph init ~/somewhere/else`. If the target sits inside an existing vault, it warns and asks before nesting.
 
-**Every other command finds the nearest enclosing vault**, walking up from your current directory the way git finds `.git/`. Run `glyph status` from `Codex/` or four levels deep in `Constellations/` and it resolves to the vault root.
+**Every other command finds the nearest enclosing vault**, walking up from your current directory the way git finds `.git/`. Run `glyph status` from four levels deep inside `Codex/` and it resolves to the vault root.
 
 `--vault` is a **fallback, not an override** — it applies only when you aren't inside a vault at all. That ordering is what makes a pinned alias useful: standing in your home directory, `glyph status` still reports on your main vault; standing inside a different vault, it reports on *that* one. To force a specific vault, `cd` there.
 
@@ -92,8 +92,7 @@ my-vault/
 ├── neuroglyphics.py          the engine          ← tracked
 ├── README.md                 this file           ← tracked
 ├── .gitignore                                    ← tracked
-├── Codex/                    one .md per glyph — your cards
-├── Constellations/           your maps (you write these)
+├── Codex/                    your maps and cards, forged in place
 ├── Wonder List.md            curiosities, one per bullet
 ├── Covenant.md               sign it
 └── .neuroglyphics/           ← hidden from Obsidian
@@ -106,7 +105,7 @@ my-vault/
 
 Everything not marked *tracked* is gitignored — it's yours, not the repo's.
 
-`init` creates `Codex/`, `Constellations/`, `Covenant.md`, `Wonder List.md`, and `.neuroglyphics/`. Any other folder you add to the vault is left alone.
+`init` creates `Codex/`, `Covenant.md`, `Wonder List.md`, and `.neuroglyphics/`. Any other folder you add to the vault is left alone.
 
 The leading dot on `.neuroglyphics/` is load-bearing: Obsidian hides dotfolders, so sealed contents are invisible from inside the app by construction. Don't rename it.
 
@@ -161,9 +160,9 @@ Creates a glyph. Interactive by default; every flag has a prompt.
 
 ### Map-aware forging
 
-Cards live **in place**. Forging `React` writes to `Constellations/frontend development/React.md` — the node note *becomes* the card, so your `binds:` edges stay wired and the Obsidian graph keeps working.
+Cards live **in place**. Forging `React` writes to `Codex/frontend development/React.md` — the node note *becomes* the card, so your `binds:` edges stay wired and the Obsidian graph keeps working. Maps and cards share one folder; a constellation is just a subfolder of `Codex/`.
 
-Before prompting, the engine searches `Constellations/**` for a note whose filename matches (case-insensitively) and pre-fills from it:
+Before prompting, the engine searches `Codex/**` for a note whose filename matches (case-insensitively) and pre-fills from it:
 
 | From the node note | Fills |
 |---|---|
