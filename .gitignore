@@ -19,6 +19,9 @@
 !.gitignore
 !README.md
 !neuroglyphics.py
+!scripts/
+!scripts/*.py
+!scripts/*.html
 
 # Obsidian workspace config — machine-specific, even in a private repo.
 .obsidian/

@@ -1,0 +1,998 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glyphdeck</title>
+<style>
+  :root {
+    --ink:        #0d0f13;
+    --ink-2:      #14171d;
+    --ink-3:      #1b1f27;
+    --line:       #2a303b;
+    --line-soft:  #222732;
+    --text:       #d9d5cc;
+    --text-dim:   #8b8779;
+    --text-faint: #5f5c53;
+    --matte:      #b9b4a8;
+    --gilt:       #d9a441;
+    --etched:     #4fc4d1;
+    --aurora:     #b57bdc;
+    --illum:      #ffd766;
+    --palimpsest: #7d7a72;
+    --warn:       #d97757;
+    --radius:     10px;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(1100px 600px at 15% -10%, #1a1e26 0%, transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, #191c2a 0%, transparent 55%),
+      var(--ink);
+    color: var(--text);
+    font-family: var(--serif);
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  a { color: var(--etched); }
+  button { font: inherit; color: inherit; cursor: pointer; }
+
+  /* ---------- header ---------- */
+  header {
+    border-bottom: 1px solid var(--line);
+    padding: 18px 24px 14px;
+    display: flex; flex-wrap: wrap; gap: 18px; align-items: baseline;
+    background: linear-gradient(180deg, rgba(255,255,255,.025), transparent);
+  }
+  .brand { font-size: 20px; letter-spacing: .14em; text-transform: uppercase; }
+  .brand .mark { color: var(--gilt); }
+  .vaultpath {
+    font-family: var(--mono); font-size: 11px; color: var(--text-faint);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40ch;
+  }
+  .vitals { margin-left: auto; display: flex; flex-wrap: wrap; gap: 20px; }
+  .vital { text-align: right; }
+  .vital .k { display: block; font-family: var(--mono); font-size: 10px;
+               letter-spacing: .12em; text-transform: uppercase; color: var(--text-faint); }
+  .vital .v { font-size: 18px; }
+
+  /* ---------- layout ---------- */
+  main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    gap: 22px; padding: 22px 24px 60px; align-items: start;
+  }
+  @media (max-width: 1080px) { main { grid-template-columns: minmax(0,1fr); } }
+
+  section.panel {
+    background: var(--ink-2);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--radius);
+    margin-bottom: 18px;
+    overflow: hidden;
+  }
+  section.panel > h2 {
+    margin: 0; padding: 11px 15px;
+    font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+    font-family: var(--mono); color: var(--text-dim);
+    border-bottom: 1px solid var(--line-soft);
+    display: flex; align-items: center; gap: 9px;
+  }
+  section.panel > h2 .count {
+    margin-left: auto; color: var(--text-faint); letter-spacing: .06em;
+  }
+  .panel-body { padding: 14px 15px; }
+
+  /* ---------- rituals ---------- */
+  .rituals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; padding: 14px 15px; }
+  @media (max-width: 520px) { .rituals { grid-template-columns: repeat(2, 1fr); } }
+  .ritual {
+    background: var(--ink-3); border: 1px solid var(--line);
+    border-radius: 8px; padding: 11px 10px 10px; text-align: left;
+    transition: border-color .14s, transform .14s, background .14s;
+  }
+  .ritual:hover:not(:disabled) { border-color: var(--gilt); transform: translateY(-1px); background: #20242e; }
+  .ritual:disabled { opacity: .4; cursor: not-allowed; }
+  .ritual .sym { display: block; font-size: 17px; color: var(--gilt); line-height: 1.1; }
+  .ritual .nm { display: block; font-size: 14px; margin-top: 3px; }
+  .ritual .sub { display: block; font-family: var(--mono); font-size: 10px; color: var(--text-faint); margin-top: 2px; }
+  .ritual.primary { border-color: #4a3f26; background: #221d13; }
+  .ritual.primary .sym { color: var(--illum); }
+  .ritual.danger:hover:not(:disabled) { border-color: var(--warn); }
+
+  /* ---------- meters ---------- */
+  .meter { margin-bottom: 13px; }
+  .meter:last-child { margin-bottom: 0; }
+  .meter .lbl {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--text-dim); margin-bottom: 5px;
+  }
+  .meter .lbl b { color: var(--text); font-weight: 400; letter-spacing: 0; }
+  .track { height: 5px; background: #0b0d11; border-radius: 3px; overflow: hidden; border: 1px solid var(--line-soft); }
+  .fill { height: 100%; background: var(--gilt); transition: width .3s; }
+  .fill.etch { background: var(--etched); }
+  .fill.aur  { background: var(--aurora); }
+  .pips { display: flex; gap: 5px; }
+  .pip { width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--line); background: #0b0d11; }
+  .pip.on { background: var(--gilt); border-color: var(--gilt); box-shadow: 0 0 7px rgba(217,164,65,.4); }
+
+  /* ---------- lists ---------- */
+  ul.rows { list-style: none; margin: 0; padding: 0; }
+  ul.rows li {
+    padding: 9px 15px; border-bottom: 1px solid var(--line-soft);
+    display: flex; gap: 10px; align-items: baseline;
+  }
+  ul.rows li:last-child { border-bottom: 0; }
+  ul.rows li .sig { font-family: var(--mono); color: var(--text-faint); font-size: 13px; }
+  ul.rows li .nm { flex: 1; min-width: 0; }
+  ul.rows li .nm small { display: block; color: var(--text-faint); font-family: var(--mono); font-size: 10.5px; }
+  ul.rows li .tag {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+    padding: 2px 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--text-dim); white-space: nowrap;
+  }
+  .tag.warn { color: var(--warn); border-color: #4a3126; }
+  .tag.gilt { color: var(--gilt); border-color: #4a3f26; }
+  .mini {
+    background: transparent; border: 1px solid var(--line); border-radius: 6px;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em;
+    padding: 3px 8px; color: var(--text-dim); text-transform: uppercase;
+  }
+  .mini:hover { border-color: var(--gilt); color: var(--gilt); }
+  .empty { padding: 13px 15px; color: var(--text-faint); font-size: 13.5px; font-style: italic; }
+
+  .finishes { display: flex; flex-wrap: wrap; gap: 7px; padding: 0 15px 14px; }
+  .fin {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em;
+    border: 1px solid var(--line); border-radius: 5px; padding: 3px 8px;
+  }
+  .fin.Matte { color: var(--matte); } .fin.Gilt { color: var(--gilt); border-color:#4a3f26; }
+  .fin.Etched { color: var(--etched); border-color:#1f4048; } .fin.Aurora { color: var(--aurora); border-color:#3b2b4d; }
+  .fin.Illuminated { color: var(--illum); border-color:#5a4a1e; } .fin.Palimpsest { color: var(--palimpsest); }
+
+  /* ---------- terminal ---------- */
+  .term-wrap { position: sticky; top: 18px; }
+  #termbar { display: flex; align-items: center; gap: 10px; }
+  #termcmd { font-family: var(--mono); font-size: 10.5px; color: var(--text-faint);
+             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); flex: none; }
+  .dot.run { background: var(--gilt); animation: pulse 1.1s infinite; }
+  .dot.ok  { background: #5aa469; }
+  .dot.err { background: var(--warn); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+  #term {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.62;
+    white-space: pre-wrap; word-break: break-word;
+    padding: 15px; margin: 0; min-height: 340px; max-height: 56vh; overflow-y: auto;
+    background: #08090c; color: var(--matte);
+  }
+  #term .c-Gilt { color: var(--gilt); }
+  #term .c-Etched { color: var(--etched); }
+  #term .c-Aurora { color: var(--aurora); }
+  #term .c-Illuminated { color: var(--illum); font-weight: 700; }
+  #term .c-dim { color: var(--text-faint); }
+  #term .c-bold { color: #f0ece1; font-weight: 700; }
+  #term .sys { color: var(--warn); font-style: italic; }
+  .term-input { display: flex; gap: 8px; padding: 11px 15px; border-top: 1px solid var(--line-soft); align-items: center; }
+  .term-input input {
+    flex: 1; background: #08090c; border: 1px solid var(--line); border-radius: 7px;
+    color: var(--text); font-family: var(--mono); font-size: 12.5px; padding: 8px 11px;
+  }
+  .term-input input:focus { outline: none; border-color: var(--gilt); }
+  .btn {
+    background: var(--ink-3); border: 1px solid var(--line); border-radius: 7px;
+    padding: 8px 14px; font-family: var(--mono); font-size: 11px;
+    letter-spacing: .09em; text-transform: uppercase; white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) { border-color: var(--gilt); color: var(--gilt); }
+  .btn:disabled { opacity: .35; cursor: not-allowed; }
+  .btn.go { background: #221d13; border-color: #4a3f26; color: var(--illum); }
+  .btn.go:hover:not(:disabled) { background: #2c2517; }
+  .btn.ghost { background: transparent; }
+
+  /* ---------- modal ---------- */
+  #veil {
+    position: fixed; inset: 0; background: rgba(4,5,7,.78);
+    display: none; align-items: flex-start; justify-content: center;
+    padding: 5vh 20px; overflow-y: auto; z-index: 50; backdrop-filter: blur(2px);
+  }
+  #veil.open { display: flex; }
+  #modal {
+    background: var(--ink-2); border: 1px solid var(--line);
+    border-radius: 12px; width: min(620px, 100%);
+    box-shadow: 0 24px 70px rgba(0,0,0,.6);
+  }
+  #modal h3 {
+    margin: 0; padding: 16px 20px 13px; border-bottom: 1px solid var(--line-soft);
+    font-size: 17px; letter-spacing: .05em; display: flex; align-items: center; gap: 10px;
+  }
+  #modal h3 .sym { color: var(--gilt); }
+  #modal .mbody { padding: 18px 20px; }
+  #modal .mfoot {
+    padding: 13px 20px; border-top: 1px solid var(--line-soft);
+    display: flex; gap: 10px; align-items: center;
+  }
+  #modal .mfoot .spacer { flex: 1; }
+  .field { margin-bottom: 15px; }
+  .field:last-child { margin-bottom: 0; }
+  .field > label {
+    display: block; font-family: var(--mono); font-size: 10.5px; letter-spacing: .11em;
+    text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px;
+  }
+  .field .hint { font-size: 12.5px; color: var(--text-faint); margin-top: 5px; font-style: italic; }
+  input[type=text], input[type=number], select, textarea {
+    width: 100%; background: #0b0d11; border: 1px solid var(--line); border-radius: 7px;
+    color: var(--text); font-family: var(--serif); font-size: 14.5px; padding: 9px 11px;
+  }
+  select { font-family: var(--mono); font-size: 13px; }
+  textarea { resize: vertical; min-height: 74px; line-height: 1.5; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--gilt); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip {
+    border: 1px solid var(--line); border-radius: 6px; padding: 5px 11px;
+    font-family: var(--mono); font-size: 11.5px; color: var(--text-dim);
+    user-select: none; background: #0b0d11;
+  }
+  .chip.on { border-color: var(--gilt); color: var(--gilt); background: #1d1911; }
+  .check { display: flex; gap: 9px; align-items: flex-start; margin-bottom: 10px; }
+  .check input { margin-top: 4px; accent-color: var(--gilt); }
+  .check span small { display: block; color: var(--text-faint); font-size: 12.5px; font-style: italic; }
+  .preview {
+    font-family: var(--mono); font-size: 11.5px; color: var(--text-dim);
+    background: #08090c; border: 1px solid var(--line-soft); border-radius: 7px;
+    padding: 10px 12px; word-break: break-all; line-height: 1.55;
+  }
+  .notice {
+    border-left: 2px solid var(--warn); background: rgba(217,119,87,.07);
+    padding: 9px 12px; font-size: 13.5px; color: #e4b7a3; border-radius: 0 6px 6px 0; margin-bottom: 14px;
+  }
+  .notice.calm { border-color: var(--etched); background: rgba(79,196,209,.06); color: #a8d9df; }
+  .err { color: var(--warn); font-size: 13.5px; }
+  .covenant {
+    padding: 12px 15px; font-size: 12.5px; color: var(--text-faint);
+    font-style: italic; border-top: 1px solid var(--line-soft);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="brand"><span class="mark">◈</span> Glyphdeck</div>
+    <div class="vaultpath" id="vaultpath">locating vault…</div>
+  </div>
+  <div class="vitals" id="vitals"></div>
+</header>
+
+<main>
+  <div>
+    <section class="panel">
+      <h2>Rituals</h2>
+      <div class="rituals" id="rituals"></div>
+      <div class="covenant">No glyph without proof. The deck runs the engine; it never writes a card itself.</div>
+    </section>
+
+    <section class="panel">
+      <h2>The season</h2>
+      <div class="panel-body" id="meters"></div>
+      <div class="finishes" id="finishes"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Forge queue <span class="count" id="queuecount"></span></h2>
+      <div id="queue"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Assay bench <span class="count" id="benchcount"></span></h2>
+      <div id="bench"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Fading &amp; due</h2>
+      <div id="upkeep"></div>
+    </section>
+
+    <section class="panel">
+      <h2>The map <span class="count" id="nodecount"></span></h2>
+      <div id="nodes"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Wonder list <span class="count" id="wondercount"></span></h2>
+      <div id="wonder"></div>
+    </section>
+  </div>
+
+  <div class="term-wrap">
+    <section class="panel">
+      <h2 id="termbar">
+        <span class="dot" id="dot"></span>
+        <span>Engine</span>
+        <span id="termcmd"></span>
+        <button class="mini" id="cancelbtn" style="margin-left:auto; display:none">Cancel</button>
+      </h2>
+      <pre id="term"><span class="c-dim">The deck is idle. Pick a ritual.</span></pre>
+      <div class="term-input">
+        <input id="stdin" type="text" placeholder="the engine is not asking for anything" disabled autocomplete="off" spellcheck="false">
+        <button class="btn" id="sendbtn" disabled>Send ⏎</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div id="veil"><div id="modal"></div></div>
+
+<script>
+"use strict";
+
+const $ = (s) => document.querySelector(s);
+const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+let V = null;              // latest vault snapshot
+let session = null;        // {id, offset, running}
+let poll = null;
+
+/* ================= vault snapshot ================= */
+
+async function refresh() {
+  try {
+    const r = await fetch("/api/vault", { cache: "no-store" });
+    V = await r.json();
+    if (V.error) throw new Error(V.error);
+    draw();
+  } catch (e) {
+    $("#vaultpath").textContent = "could not read the vault: " + e.message;
+  }
+}
+
+function draw() {
+  $("#vaultpath").textContent = V.vault;
+  drawVitals();
+  drawRituals();
+  drawMeters();
+  drawFinishes();
+  drawQueue();
+  drawBench();
+  drawUpkeep();
+  drawNodes();
+  drawWonder();
+}
+
+function vital(k, v) {
+  const d = el("div", "vital");
+  d.appendChild(el("span", "k", k));
+  d.appendChild(el("span", "v", v));
+  return d;
+}
+
+function drawVitals() {
+  const w = $("#vitals"); w.innerHTML = "";
+  w.appendChild(vital("season", V.season));
+  w.appendChild(vital("revealed", V.revealed.length));
+  w.appendChild(vital("queue", `${V.queue.length}/${V.config.folio_size}`));
+  w.appendChild(vital("sealed", V.sealed_waiting));
+  w.appendChild(vital("tokens", V.gilt_tokens));
+}
+
+/* ================= rituals ================= */
+
+const RITUALS = [
+  { id: "forge",   sym: "⚒", name: "Forge",   sub: "create a glyph", primary: true },
+  { id: "assay",   sym: "⚖", name: "Assay",   sub: "harvest a question" },
+  { id: "spark",   sym: "✦", name: "Spark",   sub: "log a study day" },
+  { id: "reveal",  sym: "▣", name: "Reveal",  sub: "open a folio" },
+  { id: "restore", sym: "↻", name: "Restore", sub: "recall a faded glyph" },
+  { id: "token",   sym: "◈", name: "Token",   sub: "bank a Gilt Token" },
+  { id: "wonder",  sym: "⨂", name: "Wonder",  sub: "capture a curiosity" },
+  { id: "status",  sym: "❖", name: "Status",  sub: "the engine's own report" },
+  { id: "seal",    sym: "▤", name: "Seal",    sub: "close a folio by hand", danger: true },
+];
+
+function drawRituals() {
+  const w = $("#rituals"); w.innerHTML = "";
+  for (const r of RITUALS) {
+    const b = el("button", "ritual" + (r.primary ? " primary" : "") + (r.danger ? " danger" : ""));
+    b.appendChild(el("span", "sym", r.sym));
+    b.appendChild(el("span", "nm", r.name));
+    let sub = r.sub;
+    if (r.id === "reveal") sub = V.sealed_waiting ? `${V.sealed_waiting} folio waiting` : "nothing sealed";
+    if (r.id === "restore") sub = V.fading.length ? `${V.fading.length} fading` : "nothing fading";
+    if (r.id === "spark" && V.sparked_today) sub = "already sparked today";
+    b.appendChild(el("span", "sub", sub));
+    if (r.id === "reveal" && !V.sealed_waiting) b.disabled = true;
+    if (r.id === "restore" && !V.fading.length) b.disabled = true;
+    b.onclick = () => openRitual(r.id);
+    w.appendChild(b);
+  }
+}
+
+/* ================= meters ================= */
+
+function meter(label, value, max, cls) {
+  const m = el("div", "meter");
+  const l = el("div", "lbl");
+  l.appendChild(el("span", null, label));
+  const b = el("b", null, value + " / " + max);
+  l.appendChild(b);
+  m.appendChild(l);
+  const t = el("div", "track");
+  const f = el("div", "fill" + (cls ? " " + cls : ""));
+  f.style.width = Math.min(100, (value / max) * 100) + "%";
+  t.appendChild(f); m.appendChild(t);
+  return m;
+}
+
+function drawMeters() {
+  const w = $("#meters"); w.innerHTML = "";
+  w.appendChild(meter("Toward the next folio", V.queue.length, V.config.folio_size));
+
+  const kin = el("div", "meter");
+  const kl = el("div", "lbl");
+  kl.appendChild(el("span", null, "Kindled week"));
+  kl.appendChild(el("b", null, V.kindled_days + " / 5 days"));
+  kin.appendChild(kl);
+  const pips = el("div", "pips");
+  for (let i = 0; i < 5; i++) { const p = el("div", "pip" + (i < V.kindled_days ? " on" : "")); pips.appendChild(p); }
+  kin.appendChild(pips);
+  w.appendChild(kin);
+
+  w.appendChild(meter("Pity — Etched+", V.folios_since_etched, V.config.pity_etched_at, "etch"));
+  w.appendChild(meter("Pity — Illuminated", V.folios_since_illuminated, V.config.pity_illum_at, "aur"));
+
+  if (V.stray_vaults && V.stray_vaults.length) {
+    const n = el("div", "notice");
+    n.textContent = "A nested .neuroglyphics/ is hiding at " + V.stray_vaults.join(", ") +
+      " — commands run from inside it resolve to the wrong vault.";
+    w.appendChild(n);
+  }
+  if (V.active_ciphers && V.active_ciphers.length) {
+    const n = el("div", "notice calm");
+    n.textContent = "Parked cipher (phase II, inert): " + V.active_ciphers.join(" · ");
+    w.appendChild(n);
+  }
+}
+
+function drawFinishes() {
+  const w = $("#finishes"); w.innerHTML = "";
+  const order = V.config.finish_order.concat(["Palimpsest"]);
+  let any = false;
+  for (const f of order) {
+    if (!V.finishes[f]) continue;
+    any = true;
+    w.appendChild(el("span", "fin " + f, `${f} ${V.finishes[f]}`));
+  }
+  if (!any) w.appendChild(el("span", "fin Matte", "no revealed cards yet"));
+}
+
+/* ================= lists ================= */
+
+function row(sig, name, sub, tags, action) {
+  const li = el("li");
+  li.appendChild(el("span", "sig", sig));
+  const n = el("span", "nm");
+  n.appendChild(document.createTextNode(name));
+  if (sub) n.appendChild(el("small", null, sub));
+  li.appendChild(n);
+  for (const t of (tags || [])) li.appendChild(el("span", "tag " + (t.cls || ""), t.text));
+  if (action) {
+    const b = el("button", "mini", action.label);
+    b.onclick = action.fn;
+    li.appendChild(b);
+  }
+  return li;
+}
+
+function listInto(target, items, emptyText) {
+  const w = $(target); w.innerHTML = "";
+  if (!items.length) { w.appendChild(el("div", "empty", emptyText)); return; }
+  const ul = el("ul", "rows");
+  items.forEach(li => ul.appendChild(li));
+  w.appendChild(ul);
+}
+
+function drawQueue() {
+  $("#queuecount").textContent = `${V.queue.length}/${V.config.folio_size}`;
+  const items = V.queue.map(g => {
+    const n = (g.assay_questions || []).length;
+    const tags = n
+      ? [{ text: `${n} question${n > 1 ? "s" : ""}`, cls: "" }]
+      : [{ text: "unexamined", cls: "warn" }];
+    return row(g.sigil || "·", g.name, `${g.glyph} · ${g.constellation} · ${g.grade}`, tags,
+      { label: "Assay", fn: () => openRitual("assay", { for: g.name }) });
+  });
+  listInto("#queue", items, "Nothing forged and waiting. The queue fills as you forge.");
+}
+
+function drawBench() {
+  $("#benchcount").textContent = V.bench.length || "";
+  const items = V.bench.map(q => row("⚖", q, "attaches to your next forge", []));
+  listInto("#bench", items,
+    "No harvested questions. Assay while you study — a question written afterward isn't one.");
+}
+
+function drawUpkeep() {
+  const items = [];
+  for (const g of V.fading) {
+    items.push(row("↻", g.name,
+      `${g.constellation} · ${g.grade}${g.would_fade ? " · past twice its interval" : ""}`,
+      [{ text: g.would_fade ? "will fade" : "fading", cls: "warn" }],
+      { label: "Restore", fn: () => openRitual("restore", { name: g.name }) }));
+  }
+  for (const g of V.due) {
+    items.push(row("↺", g.name, `${g.constellation} · ${g.overdue_days}d past its interval`,
+      [{ text: "due", cls: "" }]));
+  }
+  listInto("#upkeep", items, "Nothing fading, nothing overdue. The Codex is bright.");
+}
+
+function drawNodes() {
+  const unforged = V.nodes;
+  $("#nodecount").textContent = unforged.length ? `${unforged.length} unforged` : "";
+  const byC = {};
+  for (const n of unforged) (byC[n.constellation] = byC[n.constellation] || []).push(n);
+  const items = [];
+  for (const c of Object.keys(byC).sort()) {
+    for (const n of byC[c].slice(0, 40)) {
+      items.push(row(n.has_guide ? "✦" : "○", n.name,
+        `${c}${n.arm ? " · " + n.arm : ""} · ${n.class}`,
+        n.has_guide ? [{ text: "guided", cls: "gilt" }] : [],
+        { label: "Forge", fn: () => openRitual("forge", { node: n }) }));
+    }
+  }
+  listInto("#nodes", items, "No unforged node cards found under Constellations/.");
+}
+
+function drawWonder() {
+  const live = V.wonder.filter(w => !w.struck);
+  $("#wondercount").textContent = live.length || "";
+  const items = live.slice(0, 12).map(w => row("⨂", w.text, null, []));
+  listInto("#wonder", items, "The Wonder List is empty. Feed it.");
+}
+
+/* ================= modal ================= */
+
+function closeModal() { $("#veil").classList.remove("open"); $("#modal").innerHTML = ""; }
+$("#veil").addEventListener("click", e => { if (e.target.id === "veil") closeModal(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+function modal(sym, title, bodyNodes, footNodes) {
+  const m = $("#modal"); m.innerHTML = "";
+  const h = el("h3");
+  h.appendChild(el("span", "sym", sym));
+  h.appendChild(document.createTextNode(title));
+  m.appendChild(h);
+  const b = el("div", "mbody");
+  bodyNodes.forEach(n => b.appendChild(n));
+  m.appendChild(b);
+  const f = el("div", "mfoot");
+  f.appendChild(el("span", "spacer"));
+  const cancel = el("button", "btn ghost", "Close");
+  cancel.onclick = closeModal;
+  f.appendChild(cancel);
+  footNodes.forEach(n => f.appendChild(n));
+  m.appendChild(f);
+  $("#veil").classList.add("open");
+  const first = b.querySelector("input, select, textarea");
+  if (first) setTimeout(() => first.focus(), 40);
+  return m;
+}
+
+function field(label, control, hint) {
+  const f = el("div", "field");
+  const l = el("label", null, label);
+  f.appendChild(l); f.appendChild(control);
+  if (hint) f.appendChild(el("div", "hint", hint));
+  return f;
+}
+
+function input(id, placeholder, value) {
+  const i = el("input"); i.type = "text"; i.id = id;
+  if (placeholder) i.placeholder = placeholder;
+  if (value) i.value = value;
+  i.autocomplete = "off";
+  return i;
+}
+
+function select(id, options, value) {
+  const s = el("select"); s.id = id;
+  for (const o of options) {
+    const opt = el("option", null, o.label != null ? o.label : o);
+    opt.value = o.value != null ? o.value : o;
+    s.appendChild(opt);
+  }
+  if (value != null) s.value = value;
+  return s;
+}
+
+function goButton(label, fn) {
+  const b = el("button", "btn go", label);
+  b.onclick = fn;
+  return b;
+}
+
+/* ================= ritual forms ================= */
+
+function openRitual(id, ctx) {
+  ctx = ctx || {};
+  if (id === "status")  return run({ command: "status" });
+  if (id === "spark")   return run({ command: "spark" });
+  if (id === "forge")   return forgeForm(ctx.node);
+  if (id === "assay")   return assayForm(ctx.for);
+  if (id === "reveal")  return revealForm();
+  if (id === "restore") return restoreForm(ctx.name);
+  if (id === "token")   return tokenForm();
+  if (id === "wonder")  return wonderForm();
+  if (id === "seal")    return sealForm();
+}
+
+/* -- forge -- */
+function forgeForm(node) {
+  const nodeOpts = [{ value: "", label: "— unmapped, type it by hand —" }].concat(
+    V.nodes.map(n => ({ value: n.constellation + "/" + n.name, label: `${n.name}  ·  ${n.constellation}` }))
+  );
+  const nodeSel = select("f_node", nodeOpts, node ? node.constellation + "/" + node.name : "");
+  const name = input("f_name", "Accessibility", node ? node.name : "");
+  const cons = input("f_cons", "frontend development", node ? node.constellation : "");
+  const consList = el("datalist"); consList.id = "cons_list";
+  V.constellations.forEach(c => { const o = el("option"); o.value = c; consList.appendChild(o); });
+  cons.setAttribute("list", "cons_list");
+  const type = select("f_type", [{ value: "", label: "— from the map / default —" }].concat(V.config.types),
+    node ? node.type : "");
+  const grade = select("f_grade", [{ value: "", label: "— default: Node —" }].concat(V.config.grades), "");
+  const lore = el("textarea"); lore.id = "f_lore";
+  lore.placeholder = "One sentence, in the card's voice. Not a definition — a flavour.";
+  if (node && node.lore) lore.value = node.lore;
+  const quiz = el("input"); quiz.type = "number"; quiz.id = "f_quiz"; quiz.min = 0; quiz.max = 100;
+  quiz.placeholder = "blank if none";
+
+  const proofs = el("div", "chips");
+  const chosen = new Set();
+  V.config.proofs.forEach(p => {
+    const c = el("div", "chip", p);
+    c.onclick = () => { chosen.has(p) ? chosen.delete(p) : chosen.add(p); c.classList.toggle("on"); repaint(); };
+    proofs.appendChild(c);
+  });
+
+  const branch = el("input"); branch.type = "checkbox"; branch.id = "f_branch";
+  const capstone = el("input"); capstone.type = "checkbox"; capstone.id = "f_capstone";
+  const checks = el("div");
+  [[branch, "Completed a branch", "Banks a Gilt Token."],
+   [capstone, "This is the Capstone", "Seals the Gilded Folio immediately — the constellation closes."]]
+    .forEach(([box, label, sub]) => {
+      const d = el("div", "check");
+      d.appendChild(box);
+      const s = el("span", null, label);
+      s.appendChild(el("small", null, sub));
+      d.appendChild(s);
+      checks.appendChild(d);
+    });
+
+  const prev = el("div", "preview");
+  const benchNote = el("div", "notice calm");
+  benchNote.textContent = V.bench.length
+    ? `${V.bench.length} harvested question${V.bench.length > 1 ? "s" : ""} on the bench will attach to this card.`
+    : "The bench is empty — this card forges unexamined unless you assay it before the folio seals.";
+
+  function payload() {
+    return {
+      command: "forge",
+      args: {
+        name: name.value, constellation: cons.value, type: type.value, grade: grade.value,
+        proof: Array.from(chosen).join(", "), lore: lore.value,
+        quiz: quiz.value, branch: branch.checked, capstone: capstone.checked,
+      },
+    };
+  }
+  function repaint() { prev.textContent = preview(payload()); }
+  [name, cons, type, grade, lore, quiz, branch, capstone].forEach(n => n.addEventListener("input", repaint));
+  [branch, capstone].forEach(n => n.addEventListener("change", repaint));
+
+  nodeSel.onchange = () => {
+    const key = nodeSel.value;
+    const n = V.nodes.find(x => x.constellation + "/" + x.name === key);
+    if (!n) return;
+    name.value = n.name; cons.value = n.constellation; type.value = n.type || "";
+    if (n.lore) lore.value = n.lore;
+    repaint();
+  };
+
+  if (node && node.class) chosen.clear();
+  repaint();
+
+  const body = [
+    el("div", "notice", "No glyph without proof. Forge only what you have actually proven — the card is the receipt, not the intention."),
+    field("On the map", nodeSel, "Pick a node card and the deck fills in what the map already knows."),
+    consList,
+    (() => {
+      const g = el("div", "grid2");
+      g.appendChild(field("Name", name));
+      g.appendChild(field("Constellation", cons));
+      return g;
+    })(),
+    (() => { const g = el("div", "grid2"); g.appendChild(field("Type", type)); g.appendChild(field("Grade", grade)); return g; })(),
+    field("Proof", proofs, "Keystones take two. The Capstone takes Exposition + Artifact."),
+    field("Lore", lore, "Left blank, the engine takes the lore line already on the map."),
+    field("Quiz score %", quiz, `${V.config.assay_excellence}% or above banks a Gilt Token.`),
+    checks,
+    benchNote,
+    field("Command", prev),
+  ].filter(Boolean);
+
+  modal("⚒", "The Forge", body, [goButton("Forge", () => {
+    if (!name.value.trim()) return;
+    if (capstone.checked && !confirm("A Capstone seals the Gilded Folio now and closes the constellation. Continue?")) return;
+    closeModal(); run(payload());
+  })]);
+}
+
+/* -- assay -- */
+function assayForm(forName) {
+  const q = el("textarea"); q.id = "a_q";
+  q.placeholder = "Something you couldn't answer an hour ago.";
+  const opts = [{ value: "", label: "— hold on the bench for the next forge —" }].concat(
+    V.queue.map(g => ({ value: g.name, label: `${g.name}  ·  ${g.glyph}` }))
+  );
+  const target = select("a_for", opts, forName || "");
+  const prev = el("div", "preview");
+  const payload = () => ({ command: "assay", args: { question: q.value, for: target.value } });
+  const repaint = () => prev.textContent = preview(payload());
+  q.addEventListener("input", repaint); target.addEventListener("change", repaint); repaint();
+
+  modal("⚖", "Harvest a question", [
+    el("div", "notice calm", "Harvested during study, never written afterward. A question you can already answer is not an assay."),
+    field("The question", q),
+    field("Attach to", target, "A forged, unsealed glyph — or leave it on the bench and the next forge takes it."),
+    field("Command", prev),
+  ], [goButton("Harvest", () => { if (!q.value.trim()) return; closeModal(); run(payload()); })]);
+}
+
+/* -- reveal -- */
+function revealForm() {
+  modal("▣", "Reveal the oldest folio", [
+    el("div", "notice", "This is the ritual. It opens the assay cold, one question at a time, then flips each card and rolls its finish. Answer honestly — recognition is cheap."),
+    el("div", "preview", `folio waiting: ${V.sealed_names.join(", ") || "none"}`),
+    el("div", "hint", "The prompts arrive in the engine pane on the right; the deck gives you Yes / No buttons and an Enter key."),
+  ], [goButton("Open it", () => { closeModal(); run({ command: "reveal" }); })]);
+}
+
+/* -- restore -- */
+function restoreForm(name) {
+  const opts = V.fading.map(g => ({ value: g.name, label: `${g.name}  ·  ${g.grade}` }));
+  const sel = select("r_name", opts.length ? opts : [{ value: "", label: "— nothing is fading —" }], name || "");
+  modal("↻", "Restoration", [
+    el("div", "notice", "A fresh exam — the old assay questions are spent. Blank page first, then the applied task. Keystones and Capstones come back as Palimpsest."),
+    field("Which glyph", sel),
+    el("div", "hint", "The engine will ask for your honest verdict at the end. Answer it in the pane."),
+  ], [goButton("Begin", () => {
+    if (!sel.value) return;
+    closeModal(); run({ command: "restore", args: { name: sel.value } });
+  })]);
+}
+
+/* -- token -- */
+function tokenForm() {
+  const r = input("t_reason", 'Seal: Cartographer');
+  modal("◈", "Bank a Gilt Token", [
+    el("div", "notice calm", "A token is earned — a branch completed, a Seal taken, a map drawn. It doubles your next roll and does not stack with the others."),
+    field("Reason", r),
+  ], [goButton("Bank it", () => { closeModal(); run({ command: "token", args: { reason: r.value } }); })]);
+}
+
+/* -- wonder -- */
+function wonderForm() {
+  const i = input("w_item", "what is game theory and how can it help me in life?");
+  modal("⨂", "The Wonder List", [
+    el("div", "notice calm", "A plain capture pile. Nothing draws from it, nothing expires. Write it down and get back to work."),
+    field("What are you curious about?", i),
+  ], [goButton("Add it", () => { if (!i.value.trim()) return; closeModal(); run({ command: "wonder", args: { item: i.value } }); })]);
+}
+
+/* -- seal -- */
+function sealForm() {
+  const now = el("input"); now.type = "checkbox"; now.id = "s_now";
+  const gilded = el("input"); gilded.type = "checkbox"; gilded.id = "s_gilded";
+  const checks = el("div");
+  [[now, "Seal now", `Seal with fewer than ${V.config.folio_size} glyphs in the queue.`],
+   [gilded, "Gilded", "The Capstone folio's table. Only a closed constellation earns it."]]
+    .forEach(([box, label, sub]) => {
+      const d = el("div", "check"); d.appendChild(box);
+      const s = el("span", null, label); s.appendChild(el("small", null, sub));
+      d.appendChild(s); checks.appendChild(d);
+    });
+  modal("▤", "Seal a folio by hand", [
+    el("div", "notice", "Forging normally seals for you on every " + V.config.folio_size + "th glyph. Sealing by hand is rare — a short folio is a permanent one."),
+    el("div", "preview", `queue: ${V.queue.length}/${V.config.folio_size}`),
+    checks,
+  ], [goButton("Seal", () => {
+    closeModal(); run({ command: "seal", args: { now: now.checked, gilded: gilded.checked } });
+  })]);
+}
+
+/* ================= command preview ================= */
+
+function q(s) { return /[\s"']/.test(s) ? '"' + String(s).replace(/"/g, '\\"') + '"' : s; }
+
+function preview(p) {
+  const a = p.args || {};
+  const parts = ["python3", "neuroglyphics.py", p.command];
+  if (p.command === "forge") {
+    if (a.name) parts.push("--name", q(a.name));
+    if (a.constellation) parts.push("--constellation", q(a.constellation));
+    if (a.type) parts.push("--type", a.type);
+    if (a.grade) parts.push("--grade", a.grade);
+    if (a.proof) parts.push("--proof", q(a.proof));
+    if (a.lore) parts.push("--lore", q(a.lore.length > 34 ? a.lore.slice(0, 34) + "…" : a.lore));
+    if (a.quiz !== "" && a.quiz != null) parts.push("--quiz", a.quiz);
+    if (a.branch) parts.push("--branch");
+    if (a.capstone) parts.push("--capstone");
+  } else if (p.command === "assay") {
+    if (a.question) parts.push(q(a.question.length > 44 ? a.question.slice(0, 44) + "…" : a.question));
+    if (a.for) parts.push("--for", q(a.for));
+  } else if (p.command === "wonder" && a.item) {
+    parts.push(q(a.item));
+  } else if (p.command === "restore" && a.name) {
+    parts.push(q(a.name));
+  } else if (p.command === "token" && a.reason) {
+    parts.push("--reason", q(a.reason));
+  } else if (p.command === "seal") {
+    if (a.now) parts.push("--now");
+    if (a.gilded) parts.push("--gilded");
+  }
+  return parts.join(" ");
+}
+
+/* ================= the engine pane ================= */
+
+const ANSI = {
+  "0": null, "1": "c-bold", "2": "c-dim", "33": "c-Gilt", "36": "c-Etched",
+  "35": "c-Aurora", "93": "c-Illuminated", "1;93": "c-Illuminated", "2;37": "c-dim",
+};
+
+function appendAnsi(text) {
+  const term = $("#term");
+  const re = /\x1b\[([0-9;]*)m/g;
+  let last = 0, m;
+  let cls = term.dataset.cls || "";
+  const push = (chunk, klass) => {
+    if (!chunk) return;
+    const span = el("span", klass || null, chunk.replace(/\r/g, ""));
+    term.appendChild(span);
+  };
+  while ((m = re.exec(text)) !== null) {
+    push(text.slice(last, m.index), cls);
+    const code = m[1];
+    cls = (code === "" || code === "0") ? "" : (ANSI[code] || ANSI[code.split(";").pop()] || cls);
+    last = re.lastIndex;
+  }
+  push(text.slice(last), cls);
+  term.dataset.cls = cls;
+  term.scrollTop = term.scrollHeight;
+}
+
+function sys(msg) {
+  const term = $("#term");
+  term.appendChild(el("span", "sys", "\n" + msg + "\n"));
+  term.scrollTop = term.scrollHeight;
+}
+
+function setDot(state) {
+  const d = $("#dot"); d.className = "dot" + (state ? " " + state : "");
+}
+
+function setInputEnabled(on, placeholder) {
+  const i = $("#stdin");
+  i.disabled = !on;
+  $("#sendbtn").disabled = !on;
+  i.placeholder = placeholder || (on ? "type your answer, or just press Enter" : "the engine is not asking for anything");
+  if (on && document.activeElement !== i && !$("#veil").classList.contains("open")) i.focus();
+}
+
+async function run(payload) {
+  if (session && session.running) { sys("A ritual is already running."); return; }
+  $("#term").innerHTML = "";
+  $("#term").dataset.cls = "";
+  setDot("run");
+  $("#cancelbtn").style.display = "";
+  const r = await fetch("/api/run", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+  });
+  const data = await r.json();
+  if (data.error) {
+    setDot("err"); $("#cancelbtn").style.display = "none";
+    sys(data.error);
+    return;
+  }
+  $("#termcmd").textContent = data.command_line || "";
+  session = { id: data.id, offset: 0, running: true };
+  setInputEnabled(true);
+  pump();
+}
+
+async function pump() {
+  if (!session) return;
+  let data;
+  try {
+    const r = await fetch(`/api/session/${session.id}?offset=${session.offset}`, { cache: "no-store" });
+    data = await r.json();
+  } catch (e) {
+    setDot("err"); sys("Lost the engine: " + e.message);
+    session.running = false; setInputEnabled(false); return;
+  }
+  if (data.error) { setDot("err"); sys(data.error); session = null; setInputEnabled(false); return; }
+  if (data.text) appendAnsi(data.text);
+  session.offset = data.offset;
+  if (data.running) {
+    hintFromTail();
+    setTimeout(pump, 40);
+  } else {
+    session.running = false;
+    setDot(data.exit_code === 0 ? "ok" : "err");
+    setInputEnabled(false);
+    $("#cancelbtn").style.display = "none";
+    clearQuick();
+    sys(data.exit_code === 0 ? "— the ritual is complete —" : `— the engine stopped (exit ${data.exit_code}) —`);
+    refresh();
+  }
+}
+
+/* Read the tail of the transcript and offer the right key. */
+let quickRow = null;
+let quickMode = null;
+function clearQuick() { if (quickRow) { quickRow.remove(); quickRow = null; } quickMode = null; }
+
+function hintFromTail() {
+  const tail = $("#term").textContent.slice(-160);
+  let mode = null;
+  if (/\(y\/n\)[^\n]*$/.test(tail)) mode = "yn";
+  else if (/press Enter[^\n]*$/i.test(tail)) mode = "enter";
+  if (mode === quickMode) return;
+  if (!mode) { clearQuick(); setInputEnabled(true); return; }
+  clearQuick();
+  quickMode = mode;
+  quickRow = el("div", "term-input");
+  quickRow.dataset.mode = mode;
+  if (mode === "yn") {
+    setInputEnabled(true, "y or n — was it already on your page?");
+    const y = el("button", "btn go", "Yes — it was on my page");
+    const n = el("button", "btn", "No");
+    y.onclick = () => send("y\n"); n.onclick = () => send("n\n");
+    quickRow.appendChild(y); quickRow.appendChild(n);
+  } else {
+    setInputEnabled(true, "press Enter to continue the ritual");
+    const e = el("button", "btn go", "⏎  Continue");
+    e.onclick = () => send("\n");
+    quickRow.appendChild(e);
+  }
+  $("#term").parentNode.appendChild(quickRow);
+}
+
+async function send(text) {
+  if (!session || !session.running) return;
+  await fetch(`/api/session/${session.id}/input`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }),
+  });
+  clearQuick();
+}
+
+$("#sendbtn").onclick = () => { const i = $("#stdin"); send(i.value + "\n"); i.value = ""; };
+$("#stdin").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); const i = $("#stdin"); send(i.value + "\n"); i.value = ""; }
+});
+$("#cancelbtn").onclick = async () => {
+  if (!session) return;
+  await fetch(`/api/session/${session.id}/kill`, { method: "POST" });
+  sys("Cancelled.");
+};
+
+refresh();
+setInterval(() => { if (!session || !session.running) refresh(); }, 20000);
+</script>
+</body>
+</html>

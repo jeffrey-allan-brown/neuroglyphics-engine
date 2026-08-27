@@ -8,7 +8,7 @@ Run from your vault root, or pass --vault PATH.
 Commands:
   init      scaffold a new vault
   assay     harvest an exam question while studying (before or after forging)
-  forge     create a glyph (auto-seals a folio on every 3rd forge)
+  forge     create a glyph (auto-seals a folio on every 5th forge)
   seal      manually seal (used rarely; forge normally triggers it)
   reveal    open the oldest sealed folio, one card at a time
   status    codex stats, pity counters, tokens, fading queue
@@ -31,7 +31,7 @@ from pathlib import Path
 # ---------------------------------------------------------------- constants
 
 SEASON_DEFAULT = "S1"
-FOLIO_SIZE = 3  # fresh glyphs per folio
+FOLIO_SIZE = 5  # fresh glyphs per folio
 
 TYPES = ["Concept", "Technique", "Figure", "Work", "Event", "Instrument"]
 GRADES = ["Node", "Branch", "Keystone", "Capstone"]
@@ -42,11 +42,11 @@ TABLE_STANDARD = [(68, "Matte"), (20, "Gilt"), (8, "Etched"), (3, "Aurora"), (1,
 TABLE_GILDED = [(24, "Matte"), (40, "Gilt"), (24, "Etched"), (9, "Aurora"), (3, "Illuminated")]
 TABLE_PITY_ETCHED = [(75, "Etched"), (20, "Aurora"), (5, "Illuminated")]
 
-PITY_ETCHED_AT = 10   # folios without an Etched+ before guarantee
-PITY_ILLUM_AT = 25    # folios without an Illuminated before guarantee
+PITY_ETCHED_AT = 6    # folios without an Etched+ before guarantee (~30 glyphs)
+PITY_ILLUM_AT = 15    # folios without an Illuminated before guarantee (~75 glyphs)
 
 INTERVALS = [14, 30, 90, 365]  # days; past the last one a glyph goes Fast
-ECHO_CAP = "Aurora"            # echo upgrades stop here
+ECHO_CAP = "Aurora"            # phase II: echo upgrades stop here
 
 ASSAY_PASS = 70        # below this, the glyph enters the Codex already fading
 ASSAY_EXCELLENCE = 90  # at or above, banks a Gilt Token for the next folio
@@ -65,6 +65,7 @@ C = {
 
 FM_ORDER = [
     "glyph", "name", "constellation", "type", "grade", "proof", "forged",
+    # cipher_decode is reserved for phase II; nothing writes it in phase I.
     "stage", "finish", "first_edition", "cipher_decode", "quiz_excellence",
     "assay", "sigil", "last_fired", "interval_days", "status", "lore",
 ]
@@ -73,6 +74,22 @@ NOTE_BODY = """
 # {name}
 
 *Notes, proof links, sources.*
+
+## Guide
+
+*Written before you study, one node ahead at most. Six parts.*
+
+### 1. The one idea
+
+### 2. Why this node matters
+
+### 3. The path
+
+### 4. Where this goes wrong
+
+### 5. External check
+
+### 6. The proof that earns the card
 
 ## Assay
 
@@ -91,10 +108,10 @@ Signed: ______________________   Date: ______________
 
 WONDER_SEED = """# Wonder List
 
-Everything you're curious about. One per line. Ciphers are drawn from here.
+Everything you're curious about. One per line. A dumping ground, nothing more.
 
-Costs nothing to add. Nothing here is a to-do — undecoded curiosities return to the
-pool at season's end, and that is the system working, not you falling behind.
+Costs nothing to add, costs nothing to ignore. Nothing here is a to-do and nothing
+here is on a clock — it's the pile you go fishing in when you want something to study.
 
 - How mirrors are made
 - Why sourdough works
@@ -436,6 +453,9 @@ class Vault:
                 return fm
         return None
 
+    # wonder_items / strike_wonder are unused in phase I — the Wonder List is a
+    # plain capture pile. Phase II's cipher draw and decode read them again.
+
     def wonder_items(self, exclude_active=None):
         exclude = set(exclude_active or [])
         items = []
@@ -627,19 +647,7 @@ def cmd_forge(args):
         quiz = int(raw) if raw.isdigit() else None
     excellence = quiz is not None and quiz >= 90
 
-    # cipher decode?
-    decode_item = None
-    active = state["active_ciphers"]
-    if args.decode:
-        matches = [c for c in active if args.decode.lower() in c.lower()]
-        decode_item = matches[0] if matches else None
-    elif interactive and active:
-        print("    Active ciphers:")
-        for i, c in enumerate(active, 1):
-            print(f"      {i}. {c}")
-        raw = ask("Does this glyph decode one? (number or blank)")
-        if raw.isdigit() and 1 <= int(raw) <= len(active):
-            decode_item = active[int(raw) - 1]
+    # Phase II: cipher decoding hooks in here — it never touched the seal cadence.
 
     # Adopt an existing note rather than overwrite it.
     note_path = node_path or v.card_path(constellation, name)
@@ -673,7 +681,6 @@ def cmd_forge(args):
         "stage": "forged",
         "finish": "unrolled",
         "first_edition": str(first_edition).lower(),
-        "cipher_decode": str(bool(decode_item)).lower(),
         "quiz_excellence": str(excellence).lower(),
         "sigil": sigil_for(constellation, name),
         "last_fired": today(),
@@ -703,11 +710,6 @@ def cmd_forge(args):
     if harvested:
         v.save_bench([])
     v.write_note(path, fm, body)
-
-    if decode_item:
-        state["active_ciphers"].remove(decode_item)
-        v.strike_wonder(decode_item)
-        cprint(f"  ⨂ Cipher decoded: {decode_item}", "Etched")
 
     if args.branch:
         state["gilt_tokens"] += 1
@@ -772,7 +774,7 @@ def seal_folio(v: Vault, gilded=False):
     table = TABLE_GILDED if gilded else TABLE_STANDARD
     cards = []
     for g in queue:
-        card_twice = g.get("quiz_excellence") == "true" or g.get("cipher_decode") == "true"
+        card_twice = g.get("quiz_excellence") == "true"
         times = 2 if (folio_twice or card_twice) else 1
         finish = roll_card(table, times, rng)
         _, body = v.parse_note(g["_path"])
@@ -803,28 +805,8 @@ def seal_folio(v: Vault, gilded=False):
     else:
         state["folios_since_illuminated"] += 1
 
-    # echo slot
-    revealed = [
-        g for g in v.glyphs()
-        if g["stage"] == "revealed" and g.get("status") != "fast"
-    ]
-    echo = None
-    if revealed:
-        def overdue(g):
-            days = (date.today() - date.fromisoformat(g["last_fired"])).days
-            return days / max(int(g["interval_days"]), 1)
-        weights = [max(overdue(g), 0.1) for g in revealed]
-        echo = rng.choices(revealed, weights=weights, k=1)[0]["name"]
-
-    # cipher slot(s) — first-folio rule: no echo candidate → second cipher
-    pool = v.wonder_items(exclude_active=state["active_ciphers"])
-    ciphers = []
-    want = 1 if echo else 2
-    for _ in range(min(want, len(pool))):
-        pick = rng.choice(pool)
-        pool.remove(pick)
-        ciphers.append(pick)
-    state["active_ciphers"].extend(ciphers)
+    # A folio carries cards and nothing else. Echo and Cipher are their own
+    # rituals in phase II — they do not ride along on the seal.
 
     state["folio_counter"] += 1
     fid = f"folio-{state['folio_counter']:03d}"
@@ -834,8 +816,6 @@ def seal_folio(v: Vault, gilded=False):
         "gilded": gilded,
         "modifiers": modifiers,
         "cards": cards,
-        "echo": echo,
-        "ciphers": ciphers,
     }
 
     plaintext = json.dumps(result, indent=2).encode("utf-8")
@@ -983,43 +963,9 @@ def cmd_reveal(args):
             _, body = v.parse_note(p)
             v.write_note(p, fm2, body)
 
-    if result.get("echo"):
-        echo_fm = v.find_glyph(result["echo"])
-        if echo_fm:
-            print()
-            cprint(f"  ↺ ECHO — {echo_fm['name']} returns.", "Etched")
-            print("    60 seconds: say aloud everything you remember. Then check your note.")
-            wait_enter("    — press Enter when done —")
-            passed = ask("Honest verdict — did you hold it? (y/n)", "y").lower().startswith("y")
-            fm2 = dict(echo_fm)
-            p = fm2.pop("_path")
-            _, body = v.parse_note(p)
-            if passed:
-                old = fm2["finish"]
-                if old in FINISH_ORDER and FINISH_ORDER.index(old) < FINISH_ORDER.index(ECHO_CAP):
-                    fm2["finish"] = FINISH_ORDER[FINISH_ORDER.index(old) + 1]
-                    cprint(f"    Upgraded: {old} → {fm2['finish']}", fm2["finish"])
-                else:
-                    print("    Held at its finish — the memory is the reward.")
-                idx = INTERVALS.index(int(fm2["interval_days"])) if int(fm2["interval_days"]) in INTERVALS else -1
-                if idx == len(INTERVALS) - 1 or idx == -1:
-                    fm2["status"] = "fast"
-                    cprint("    This glyph is now FAST — fade-proof. Done forever.", "bold")
-                else:
-                    fm2["interval_days"] = INTERVALS[idx + 1]
-                fm2["last_fired"] = today()
-                fm2["status"] = fm2.get("status") if fm2.get("status") == "fast" else "bright"
-            else:
-                fm2["status"] = "fading"
-                cprint("    It slips. Marked fading — restore it when you're ready.", "dim")
-            v.write_note(p, fm2, body)
-
-    for item in result.get("ciphers", []):
-        print()
-        cprint(f"  ⨂ CIPHER — {item}", "Aurora")
-        print("    Active this season. Forge a glyph about it to decode: rolls twice, wears the stamp.")
-    if not result.get("ciphers"):
-        cprint("\n  The Wonder List ran dry — no cipher this folio. Feed it.", "dim")
+    # Phase I ends the reveal with the cards. Echo and Cipher are separate
+    # rituals in phase II; a folio that predates the split may still carry
+    # their fields, and they are ignored on purpose.
 
     path.rename(v.revealed_dir / path.name)
     with v.ledger.open("a", encoding="utf-8") as f:
@@ -1115,8 +1061,8 @@ def cmd_status(args):
         f"  Pity — Etched+: {state['folios_since_etched']}/{PITY_ETCHED_AT} folios"
         f"   Illuminated: {state['folios_since_illuminated']}/{PITY_ILLUM_AT}"
     )
-    if state["active_ciphers"]:
-        print("  Active ciphers:")
+    if state.get("active_ciphers"):
+        print("  Active ciphers (phase II — decoding not wired up yet):")
         for c in state["active_ciphers"]:
             print(f"    ⨂ {c}")
     fading = [g for g in glyphs if g.get("status") == "fading"]
@@ -1130,7 +1076,7 @@ def cmd_status(args):
         and (date.today() - date.fromisoformat(g["last_fired"])).days > int(g["interval_days"])
     ]
     if due:
-        cprint("  Due for firing (echo will find them, or beat it to the punch):", "dim")
+        cprint("  Due for firing — fire them yourself until Echo lands in phase II:", "dim")
         for g in due[:5]:
             print(f"    ↺ {g['name']}")
     print()
@@ -1162,12 +1108,11 @@ def main():
     f.add_argument("--proof")
     f.add_argument("--lore")
     f.add_argument("--quiz", type=int, help="quiz score percent")
-    f.add_argument("--decode", help="active cipher this glyph decodes (substring)")
     f.add_argument("--branch", action="store_true", help="this forge completed a branch (banks a Gilt Token)")
     f.add_argument("--capstone", action="store_true", help="this is a Capstone: seal the Gilded Folio now")
 
     s = sub.add_parser("seal", help="manually seal a folio")
-    s.add_argument("--now", action="store_true", help="seal even with fewer than 3 glyphs")
+    s.add_argument("--now", action="store_true", help=f"seal even with fewer than {FOLIO_SIZE} glyphs")
     s.add_argument("--gilded", action="store_true")
 
     sub.add_parser("reveal", help="open the oldest sealed folio")

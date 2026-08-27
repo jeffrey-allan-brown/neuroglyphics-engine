@@ -2,7 +2,22 @@
 
 The command-line engine that runs the system. One Python file, standard library only, no installs, no dependencies. It lives at the root of the vault (`neuroglyphics.py`) so the code travels with your notes.
 
+An optional visual console — **Glyphdeck** — sits in `scripts/`. Same story: pure stdlib, nothing to install. It presses the engine's buttons rather than replacing it. [Jump to it](#glyphdeck).
+
 This is *how the tool works* — command reference and file formats. Workflow and study philosophy live in your own vault notes once you've scaffolded one.
+
+---
+
+## Phase I — what's wired up
+
+The system is named for more than it currently runs. **Phase I** is everything documented below unless marked otherwise: forge, seal, reveal, fading, restore, sparks, Gilt Tokens, pity.
+
+Two rituals appear throughout the lore and are **not yet implemented**:
+
+- **The Echo** — a spaced recall check that rode along on reveal. Gone from the reveal path; fire due cards yourself, `glyph status` lists them.
+- **The Cipher** — curiosities drawn from the Wonder List that a glyph could decode for a doubled roll. Gone from seal and forge; `forge --decode` no longer exists.
+
+A folio now carries cards and nothing else. An older `state.json` may still hold `active_ciphers` — `status` prints them, flagged, and nothing acts on them. Folios sealed before the split keep their `echo` and `ciphers` fields, ignored on purpose at reveal.
 
 ---
 
@@ -27,7 +42,7 @@ No git? Download the ZIP from the repo's green **Code** button, unzip it, and `c
 python3 neuroglyphics.py init
 ```
 
-This creates `Codex/`, `Constellations/`, `Covenant.md`, `Wonder List.md`, and the hidden `.neuroglyphics/` — including a **salt unique to you**, generated on the spot. Two vaults never share one.
+This creates `Constellations/`, `Codex/`, `Covenant.md`, `Wonder List.md`, and the hidden `.neuroglyphics/` — including a **salt unique to you**, generated on the spot. Two vaults never share one.
 
 `init` only creates what's missing, so it's safe to re-run. It never overwrites a note, a signed Covenant, your Wonder List, the ledger, or `state.json`.
 
@@ -50,11 +65,19 @@ Sign the Covenant, sketch a Constellation, feed the Wonder List. Then forge your
 
 Open Obsidian → **Open folder as vault** → pick the folder you just cloned. `.neuroglyphics/` stays invisible inside the app because of the leading dot.
 
+### 5. Optional — open the deck
+
+```bash
+python3 scripts/glyphdeck.py
+```
+
+A tab opens on `http://127.0.0.1:7373`. Everything the CLI does, with buttons. [Details below](#glyphdeck).
+
 ---
 
 ## Your cards never enter this repo
 
-`.gitignore` excludes everything you and the engine generate — `state.json`, the ledger, sealed folios, `Codex/`, `Constellations/`, your Covenant, your Wonder List. Only the engine and its docs are tracked.
+`.gitignore` excludes everything you and the engine generate — `state.json`, the ledger, sealed folios, `Constellations/`, `Codex/`, your Covenant, your Wonder List. Only the engine, the deck, and their docs are tracked.
 
 That has one very useful consequence: **your clone stays a clean copy of the engine**, so updates are just
 
@@ -72,7 +95,7 @@ Two different rules, on purpose.
 
 **`init` always scaffolds where you're standing.** It ignores `--vault` entirely, so a pinned alias can never silently re-initialize some other directory when you meant *here*. Pass a path to override: `glyph init ~/somewhere/else`. If the target sits inside an existing vault, it warns and asks before nesting.
 
-**Every other command finds the nearest enclosing vault**, walking up from your current directory the way git finds `.git/`. Run `glyph status` from `Codex/` or four levels deep in `Constellations/` and it resolves to the vault root.
+**Every other command finds the nearest enclosing vault**, walking up from your current directory the way git finds `.git/`. Run `glyph status` from four levels deep inside `Codex/` and it resolves to the vault root.
 
 `--vault` is a **fallback, not an override** — it applies only when you aren't inside a vault at all. That ordering is what makes a pinned alias useful: standing in your home directory, `glyph status` still reports on your main vault; standing inside a different vault, it reports on *that* one. To force a specific vault, `cd` there.
 
@@ -92,8 +115,11 @@ my-vault/
 ├── neuroglyphics.py          the engine          ← tracked
 ├── README.md                 this file           ← tracked
 ├── .gitignore                                    ← tracked
-├── Codex/                    one .md per glyph — your cards
-├── Constellations/           your maps (you write these)
+├── scripts/                                      ← tracked
+│   ├── glyphdeck.py          the visual console
+│   └── glyphdeck.html        its single-page UI
+├── Constellations/           your maps and cards, forged in place
+├── Codex/                    cards forged before the split
 ├── Wonder List.md            curiosities, one per bullet
 ├── Covenant.md               sign it
 └── .neuroglyphics/           ← hidden from Obsidian
@@ -106,7 +132,7 @@ my-vault/
 
 Everything not marked *tracked* is gitignored — it's yours, not the repo's.
 
-`init` creates `Codex/`, `Constellations/`, `Covenant.md`, `Wonder List.md`, and `.neuroglyphics/`. Any other folder you add to the vault is left alone.
+`init` creates `Constellations/`, `Codex/`, `Covenant.md`, `Wonder List.md`, and `.neuroglyphics/`. Any other folder you add to the vault is left alone.
 
 The leading dot on `.neuroglyphics/` is load-bearing: Obsidian hides dotfolders, so sealed contents are invisible from inside the app by construction. Don't rename it.
 
@@ -122,6 +148,8 @@ Appends to the Wonder List. Interactive if no argument.
 ```bash
 glyph wonder "how mirrors are made"
 ```
+
+In phase I this is a capture pile and nothing more — nothing on it is a to-do, nothing expires, and nothing draws from it. Phase II's Cipher will.
 
 ### `glyph spark`
 Logs a study session for today. Five sparks in a rolling seven days = **Kindled Week**, which makes every card in the next sealed folio roll twice and keep the better. Once per day; running it twice is a no-op.
@@ -153,15 +181,14 @@ Creates a glyph. Interactive by default; every flag has a prompt.
 | `--proof` | Comma-separated: `Recall,Exposition` |
 | `--lore` | One sentence in the card's voice |
 | `--quiz 95` | Score from an **externally authored** exam. ≥90 doubles this card's roll immediately |
-| `--decode "mirrors"` | This glyph decoded an active Cipher (substring match). Doubles the roll |
 | `--branch` | This forge closed a branch. Banks a Gilt Token |
 | `--capstone` | Seals the Gilded Folio immediately at tripled odds |
 
-**Every third forge auto-seals a folio.** You'll see `SEALED` and nothing more.
+**Every fifth forge auto-seals a folio.** You'll see `SEALED` and nothing more.
 
 ### Map-aware forging
 
-Cards live **in place**. Forging `React` writes to `Constellations/frontend development/React.md` — the node note *becomes* the card, so your `binds:` edges stay wired and the Obsidian graph keeps working.
+Cards live **in place**. Forging `React` writes to `Constellations/frontend development/React.md` — the node note *becomes* the card, so your `binds:` edges stay wired and the Obsidian graph keeps working. Maps and cards share one folder; a constellation is just a subfolder of `Constellations/`.
 
 Before prompting, the engine searches `Constellations/**` for a note whose filename matches (case-insensitively) and pre-fills from it:
 
@@ -178,6 +205,8 @@ On success it prints `✦ On the map — frontend development · VI. The Scaffol
 If no node note matches, you get `○ Not on any map. Forging unmapped.` — a signal the glyph is drifting and may want a constellation later.
 
 Any flag you pass still wins over the map.
+
+**Cards forged before the `Constellations/` split** still live in `Codex/`, and the engine still reads them — top-level `Codex/*.md` only, not nested — so old glyphs keep counting toward stats, pity and fading. New cards always land under `Constellations/`. Node-note lookup and constellation names come from `Constellations/` alone.
 
 **Forging a name that already has a note is safe.** The engine *adopts* the note instead of overwriting it:
 
@@ -196,16 +225,16 @@ Manual sealing. Rarely needed — `forge` handles it.
 
 | Flag | Effect |
 |---|---|
-| `--now` | Seal with fewer than 3 glyphs in the queue |
+| `--now` | Seal with fewer than 5 glyphs in the queue |
 | `--gilded` | Force tripled odds |
 
 ### `glyph reveal`
 Opens the **oldest** sealed folio. Verifies the hash against the ledger first — a mismatch aborts with a covenant warning and changes nothing.
 
-Per card: Assay (free recall, then sealed questions) → flip → finish. Then the Echo recall check, then Cipher draws. Moves the folio to `revealed/` and logs it.
+Per card: Assay (free recall, then sealed questions) → flip → finish. The reveal ends with the cards — Echo and Cipher are phase II. Moves the folio to `revealed/` and logs it.
 
 ### `glyph status`
-Everything at a glance: counts by finish, forge queue, sealed folios waiting, Gilt Tokens, Kindled Week progress, pity counters, active ciphers, the fading queue, cards due for firing, and any queued card with no assay attached.
+Everything at a glance: counts by finish, forge queue, sealed folios waiting, Gilt Tokens, Kindled Week progress, pity counters, the fading queue, cards due for firing, and any queued card with no assay attached. Ciphers left over in `state.json` are listed, flagged as phase II.
 
 Also sweeps for newly-faded glyphs — running it is how fading gets applied.
 
@@ -220,6 +249,36 @@ glyph token --reason "Seal: Cartographer"
 
 ---
 
+## Glyphdeck
+
+A visual console for the same engine. Localhost only, pure stdlib, no installs.
+
+```bash
+python3 scripts/glyphdeck.py
+```
+
+It finds the vault the way every other command does — nearest enclosing vault, walking up from `scripts/` — then serves `http://127.0.0.1:7373` and opens a tab.
+
+| Flag | Effect |
+|---|---|
+| `--vault PATH` | Fallback for when `scripts/` isn't inside a vault |
+| `--port 7374` | Bind elsewhere. Default `7373` |
+| `--no-browser` | Serve, don't open a tab |
+
+Buttons and forms build real `neuroglyphics.py` invocations and run them under a pseudo-terminal, so the engine behaves exactly as it does in your shell — colours, pauses, prompts and all. The reveal ritual still flips one card at a time; you press a button instead of Enter.
+
+**What the deck will not do:**
+
+- **It never writes.** Not a card, not a folio, not the ledger, not `state.json`. Every mutation goes through the engine. The deck reads the vault to draw the dashboard and pipes your keystrokes to a subprocess.
+- **It never runs `init`.** A stray `init` once created a nested vault under `Guides/`; the deck refuses to be the thing that does that again. It *warns* on startup if it finds a nested `.neuroglyphics/`.
+- **It never flips a glyph to `forged` on your behalf.** No glyph without proof.
+
+`glyphdeck.html` is the entire UI in one file. It must stay beside `glyphdeck.py` — the deck checks at startup and exits if it's missing.
+
+Ctrl-C closes it, killing any engine subprocess still running.
+
+---
+
 ## Who owns which field
 
 The engine writes some frontmatter and reads the rest. Hand-editing an engine-owned field will be silently overwritten.
@@ -228,9 +287,13 @@ The engine writes some frontmatter and reads the rest. Hand-editing an engine-ow
 |---|---|
 | `glyph`, `sigil`, `stage`, `finish`, `assay` | `name`, `constellation`, `type`, `grade` |
 | `last_fired`, `interval_days`, `status` (on reveal/restore) | `proof`, `lore`, `forged` |
-| `first_edition`, `cipher_decode` | `quiz_excellence` |
+| `first_edition` | `quiz_excellence` |
 
 **`stage: draft`** is the useful escape hatch. The engine only sweeps `stage: forged` cards into folios, so a draft can never seal unproven. Set it by hand when you want a card to exist before its proof does.
+
+`cipher_decode` still holds its slot in the frontmatter order, but nothing writes it in phase I.
+
+**New notes get a `## Guide` section** — six headed parts: the one idea, why this node matters, the path, where this goes wrong, external check, and the proof that earns the card. Written before you study, one node ahead at most. The engine never fills it and never reads it; it's yours.
 
 ---
 
@@ -250,6 +313,8 @@ The engine writes some frontmatter and reads the rest. Hand-editing an engine-ow
 }
 ```
 
+`active_ciphers` is inert in phase I — carried for older vaults, and for phase II.
+
 **Don't lose the salt.** It's the decryption key for every sealed folio. Losing it makes unopened folios unreadable — the cards are still safe in `Codex/`, but their finishes are gone.
 
 **Season rollover:** set `"season": "S2"` and `"glyph_counter": 0`. Do the closing ritual first.
@@ -264,11 +329,11 @@ All constants sit at the top of `neuroglyphics.py`:
 
 | Constant | Default | What |
 |---|---|---|
-| `FOLIO_SIZE` | `3` | Forges per folio |
+| `FOLIO_SIZE` | `5` | Forges per folio |
 | `TABLE_STANDARD` | 68/20/8/3/1 | Finish odds |
 | `TABLE_GILDED` | 24/40/24/9/3 | Gilded Folio odds |
-| `PITY_ETCHED_AT` | `10` | Dry folios before a guaranteed Etched+ |
-| `PITY_ILLUM_AT` | `25` | Dry folios before a guaranteed Illuminated |
+| `PITY_ETCHED_AT` | `6` | Dry folios before a guaranteed Etched+ (~30 glyphs) |
+| `PITY_ILLUM_AT` | `15` | Dry folios before a guaranteed Illuminated (~75 glyphs) |
 | `INTERVALS` | `14,30,90,365` | Firing schedule in days |
 | `ASSAY_PASS` | `70` | Below this, a card enters fading |
 | `ASSAY_EXCELLENCE` | `90` | At or above, banks a Gilt Token |
@@ -296,10 +361,14 @@ At seal time the engine rolls contents and finishes, applies modifiers and pity,
 | `cannot be decoded` | Wrong salt — usually a `state.json` restored from a different vault |
 | `… is already sealed` | You tried to `assay --for` a committed card. Harvest for the next glyph instead |
 | `is already sealed — it's a card, not a draft` | You re-forged a revealed card. Edit the note directly, or use a different name |
-| `Only 2/3 glyphs in the queue` | Use `seal --now` if you really want a short folio |
+| `Only 2/5 glyphs in the queue` | Use `seal --now` if you really want a short folio |
 | `Nothing in the forge queue` | Every forged card is already sealed |
 | Fading not appearing | Run `glyph status` — that's what applies the sweep |
 | Colors look wrong | Output isn't a TTY. Piping strips ANSI on purpose |
+| `No vault found.` from the deck | `scripts/` isn't inside a vault. `init` at the vault root, or pass `--vault PATH` |
+| `glyphdeck.html must sit beside glyphdeck.py` | The pair got separated. Keep both in `scripts/` |
+| Deck can't bind port 7373 | A deck is already running. Close it, or use `--port 7374` |
+| Old cards missing from `status` | Legacy `Codex/` cards are read at the top level only. Move nested ones up, or into `Constellations/<name>/` |
 
 **Backups:** `.neuroglyphics/` is the only irreplaceable part. Your cards are plain markdown; the state, ledger, and salt are not — and this repo's `.gitignore` deliberately keeps them out of git, so cloning the template does **not** back you up.
 
